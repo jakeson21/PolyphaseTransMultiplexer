@@ -4,7 +4,7 @@ TransmitChannelizer
 
 ## Volk test
 Run time statistics:
-
+```
 Architecture:        x86_64
 CPU op-mode(s):      32-bit, 64-bit
 Byte Order:          Little Endian
@@ -29,7 +29,7 @@ L3 cache:            8192K
 NUMA node0 CPU(s):   0-11
 
 16 GB DDR-4
-
+```
 
 Setup
 - Running volk kernels for length 62500000 vectors
