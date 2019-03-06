@@ -19,7 +19,7 @@ public:
         Timer::tend = boost::posix_time::microsec_clock::local_time();
         boost::posix_time::time_duration dur = tend - t0;
         // Getting the Time Difference in Total Nano Seconds only
-        std::cout << "Time Diff in Total uS: " << dur.total_microseconds() << std::endl;        
+        std::cout << "Time elapsed in usec:  " << dur.total_microseconds() << std::endl;        
     }
     
 protected:
@@ -57,6 +57,7 @@ int main(int argc, char **argv) {
         lv_32fc_t phase= lv_cmake(1.f, 0.0f); // start at 1 (0 rad phase)
         
         // rotate so the output is a tone at f=0.4
+        std::cout << "Running volk_32fc_s32fc_x2_rotator_32fc for length " << N << " vectors" << std::endl;
         Timer::start();
         volk_32fc_s32fc_x2_rotator_32fc(out, in, phase_increment, &phase, N);
         Timer::stop();
@@ -76,6 +77,7 @@ int main(int argc, char **argv) {
             increasing[ii] = (lv_32fc_t)ii;
             decreasing[ii] = 10.f - (lv_32fc_t)ii;
         }
+        std::cout << "Running volk_32fc_x2_add_32fc for length " << N << " vectors" << std::endl;
         Timer::start();
         volk_32fc_x2_add_32fc(out, increasing, decreasing, N);
         Timer::stop();
@@ -92,8 +94,7 @@ int main(int argc, char **argv) {
         int64_t FS = 62500000;
         size_t blocks = 100;
         size_t N = FS/blocks;
-        N = std::pow(2, std::ceil(std::log2(N)));
-        std::cout << "N=" << N << std::endl;
+        N = std::pow(2, std::ceil(std::log2(N)));        
         
         if(!fftw_init_threads())
         {
@@ -106,6 +107,7 @@ int main(int argc, char **argv) {
         out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
         p = fftw_plan_dft_1d(N, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
         
+        std::cout << "Running fftw_execute " << blocks << " times for NFFT of " << N << std::endl;
         Timer::start();
         for (size_t n=0; n<blocks; n++)
             fftw_execute(p); /* repeat as needed */
