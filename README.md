@@ -33,7 +33,7 @@ NUMA node0 CPU(s):   0-11
 
 Setup
 - Running volk kernels for length 62500000 vectors
-- Running FFTW with
+- Running FFTW with 8 threads and data as:
   - FS = 62500000
   - blocks = 100
   - N = FS/blocks
