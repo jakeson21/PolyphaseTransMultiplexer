@@ -170,30 +170,45 @@ class RxChannelizer():
 
 if __name__ == "__main__":
     rxchan = RxChannelizer(sampleRateHz=10000, stepSizeHz=100)
-    t1 = rxchan.requestTuner(bandwidthHz=1000, fcHz=0)
+    tuners = dict()
+    T = rxchan.requestTuner(bandwidthHz=1000, fcHz=0)
+    tuners[T.tuner_id] = T
+    T = rxchan.requestTuner(bandwidthHz=1000, fcHz=50)
+    tuners[T.tuner_id] = T
+    T = rxchan.requestTuner(bandwidthHz=2600, fcHz=-500)
+    tuners[T.tuner_id] = T
+
     print(rxchan)
 
     data = np.ones((rxchan.R, ), dtype=np.csingle)
-    x = np.empty((0,), dtype=np.csingle)
-    plt.subplot(2, 1, 1)
+    # x = np.empty((0,), dtype=np.csingle)
+    x = dict()
+    plt.subplot(len(tuners)+1, 1, 1)
     for k in range(0,64):
         output = rxchan.process(data)
         # print(output)
 
         n = 1
         for key in output:
-            t = np.arange(0,rxchan.Tuners[key].R) + (k-1)*rxchan.Tuners[key].R
-            # plt.subplots(len(output), n)
-            plt.plot(t, output[key].real)
+            t = np.arange(0.0, rxchan.Tuners[key].R) + (k-1)*rxchan.Tuners[key].R
+            # plt.subplot(len(tuners)+1, 1, 1)
+            plt.plot(t/tuners[key].bandwidthHz, output[key].real)
             n += 1
-            x = np.concatenate((x, output[key]), axis=0)
+            if key in x:
+                x[key] = np.concatenate((x[key], output[key]), axis=0)
+            else:
+                x[key] = output[key]
+
+
     plt.grid(True)
     # plt.show()
-
-    plt.subplot(2, 1, 2)
-    freq = np.fft.fftshift(np.fft.fftfreq(x.size))*1000
-    X = np.fft.fftshift(np.fft.fft(x))
-    print(X)
-    plt.plot(freq, np.abs(X))
-    plt.grid(True)
+    n = 2
+    for key in x:
+        plt.subplot(len(tuners)+1, 1, n)
+        freq = np.fft.fftshift(np.fft.fftfreq(x[key].size))*tuners[key].bandwidthHz
+        X_dB = 20*np.log10(np.abs(np.fft.fftshift(np.fft.fft(x[key]))))
+        # print(X_dB)
+        plt.plot(freq, X_dB)
+        plt.grid(True)
+        n += 1
     plt.show()
