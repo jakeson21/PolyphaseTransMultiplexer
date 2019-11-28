@@ -87,7 +87,7 @@ TunerMapping = Dict[int, TunerType]
 
 class RxChannelizer():
 
-    def __init__(self, sampleRateHz: float, stepSizeHz: int):
+    def __init__(self, sampleRateHz: int, stepSizeHz: int):
         if sampleRateHz % stepSizeHz != 0 and sampleRateHz/stepSizeHz % 2 != 0:
             raise ValueError('sampleRateHz/stepSizeHz [{}/{}] must be an integer and even'.format(sampleRateHz, stepSizeHz))
         self.sampleRateHz = sampleRateHz
