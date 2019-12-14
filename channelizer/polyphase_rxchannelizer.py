@@ -5,7 +5,9 @@ from scipy import signal
 import json
 import pdb
 import matplotlib.pyplot as plt
+import matplotlib
 import sys
+from time import perf_counter 
 
 class PolyphaseRxChannelizer():
     def __init__(self, sampleRateHz: float, channelBandwidthHz: float, blockSize: int):
@@ -18,12 +20,12 @@ class PolyphaseRxChannelizer():
             raise ValueError('sampleRateHz ({}) must be evenly divisible by channelBandwidthHz ({})'.format(sampleRateHz, channelBandwidthHz))
 
         self.M = int(self.sampleRateHz / self.channelBandwidthHz)
-        Order = 50
+        Order = 10
         self.filter = self.makePolyphaseFilter(order=Order)
         # inputBuffer is used to save filterlength-1 WB samples for overlap-and-save based filtering
-        self.inputBuffer = np.zeros((self.M, self.filter.shape[1]-1), dtype=np.csingle)
+        self.inputBuffer = np.zeros((self.M, self.filter.shape[1]-1), dtype=np.cdouble)
         # outputBuffer stores the last M-1 filtered and reordered samples for use in the next iteration
-        self.outputBuffer = np.zeros((self.M-1, 1), dtype=np.csingle)
+        self.outputBuffer = np.zeros((self.M-1, 1), dtype=np.cdouble)
 
     def __str__(self):
         d = dict()
@@ -34,9 +36,16 @@ class PolyphaseRxChannelizer():
         return json.dumps(d)
 
     def makePolyphaseFilter(self, order):
-        h = signal.firwin(order*self.M+1, cutoff=1.0/(self.M + 0.1*self.M))
-        h[abs(h) <= 1e-4] = 0.
-        h = h/np.max(h)/self.M
+        fs = self.M
+        # cutoff = 1.0/(self.M - 0.25*self.M)
+        cutoff = 0.5
+        transition_width = 0.1
+        numtaps, beta = signal.kaiserord(150, width=transition_width/(0.5*fs))
+        print('fs={}, transition_width={}, cutoff={}, numtaps={}, beta={}'.format(fs, transition_width, cutoff, numtaps, beta))
+
+        h = signal.firwin(numtaps, cutoff=cutoff, window=('kaiser', beta), scale=False, nyq=0.5*self.M)
+        # h[abs(h) <= 1e-4] = 0.
+        # h = h/np.max(h)/self.M
 
         # form Hk
         N: int = int(np.ceil(np.ceil(h.size/self.M)*self.M))
@@ -126,26 +135,19 @@ def gen_complex_chirp(fs=44100):
 
 def gen_fdma(fs, bw):
     num_chans = int(np.floor(fs/bw))
-    # Generate QPSK data
+    # Generate QPSK data of about 1 second
     C = np.asarray([1+1j, 1-1j, -1+1j, -1-1j])
     S = C[np.random.randint(C.size, size=(bw, 1))]
     Sup = np.zeros((S.size, num_chans-1,))
     x = np.hstack((S,Sup))
-    x = np.squeeze(np.reshape(x, (x.size,-1)))
-    hrrc = np.asarray(rcosdesign(beta=0.3, span=8, sps=num_chans*2, name='sqrt'), dtype=np.csingle)
-    data = signal.lfilter(hrrc, 1, x)
+    data = np.squeeze(np.reshape(x, (x.size,-1)))
+    hrrc = np.asarray(rcosdesign(beta=0.01, span=256, sps=num_chans*2, name='sqrt'), dtype=np.cdouble)
+    data = signal.lfilter(hrrc, 1, data)
 
     # generate fdma mapping
     f = np.linspace(-fs/2, fs/2, num_chans*2+1)[1::2]
     fdma = np.random.randint(num_chans, size=10*num_chans)
     bs = int(np.floor(data.size/fdma.size))
-
-    # order = 150
-    # h = signal.firwin(int(order), cutoff=1.0/(num_chans + 0.25*num_chans))
-    # h[abs(h) <= 1e-4] = 0.
-    # h = h/np.max(h)/num_chans
-    # data = np.random.randn(bs*fdma.size, ) + 1j*np.random.randn(bs*fdma.size, )
-    # data = signal.lfilter(h, 1, data)
 
     n = 0
     t = np.arange(0,data.size)
@@ -153,28 +155,29 @@ def gen_fdma(fs, bw):
         fc = f[fdma[n]]
         z = np.arange(0, bs, dtype=int) + m
         p = np.ones_like(np.asarray(data[z]))
-        p[:500] = np.logspace(-6, 0, num=500)
-        p[-500:] = np.logspace(0, -6, num=500)
+        L = int(np.round(0.05*bs))
+        p[:L] = np.logspace(-6, 0, num=L)
+        p[-L:] = np.logspace(0, -6, num=L)
         data[z] *= np.exp(2j*np.pi*fc*t[z]/fs) * p
         n += 1
 
     return data
 
 if __name__ == "__main__":
-    num_channels = 5
-    chanBW = 200000
+    num_channels = 15
+    chanBW = 50000
     Fs = chanBW*num_channels
-    # data = np.ones((4000,), dtype=np.csingle)
+    # data = np.ones((4000,), dtype=np.cdouble)
     # t = np.arange(0, 4, step=1/rx.sampleRateHz)
     # fc = np.linspace(-1*rx.sampleRateHz/2, 0, t.size)
     # data = np.exp(2j*np.pi*t*fc)
 
     # data = gen_complex_chirp(fs=Fs)
-    # data += .02*np.random.randn(len(data))
+    # data += .0001*np.random.randn(len(data))
     data = gen_fdma(fs=Fs, bw=chanBW)
 
-    # data = np.arange(0,rx.M*50, dtype=np.csingle)
-    num_blocks = 20
+    # data = np.arange(0,rx.M*50, dtype=np.cdouble)
+    num_blocks = 10
     block_len = np.floor(data.size/num_channels/num_blocks)
     inds = np.arange(0, block_len*num_channels*num_blocks, dtype=int).reshape(num_blocks,-1)
 
@@ -182,8 +185,8 @@ if __name__ == "__main__":
     rx = PolyphaseRxChannelizer(sampleRateHz=Fs, channelBandwidthHz=channelHz, blockSize=block_len)
     print(rx)
 
-    fig, ax = plt.subplots(num_channels+1, 2)
-    # outputs = np.empty(shape=(,), dtype=np.csingle)
+    # Start the stopwatch / counter 
+    t1_start = perf_counter()
     for m in range(num_blocks):
         output = rx.process(data[inds[m,:]])
         # print(output.shape)
@@ -193,20 +196,28 @@ if __name__ == "__main__":
             outputs = output
         else:
             outputs = np.hstack((outputs, output))
+    # Stop the stopwatch / counter 
+    t1_stop = perf_counter()
+    print("Elapsed time: {} s".format(t1_stop-t1_start))
+    print("Samples per second: {}".format(outputs.size/(t1_stop-t1_start)))
 
+    # Make pretty plots
+    # plt.style.use('ggplot')
+    plt.rcParams.update({'font.size': 7})
+    fig, ax = plt.subplots(num_channels+1, 2)
     t = np.arange(0, outputs.shape[1])/Fs*num_channels
     for n in range(0, rx.M):
-        # ax[n+1].plot(t, outputs[n,:])
-        # ax[n+1].grid(True)
         ax[n+1,0].specgram(outputs[n,:], NFFT=32, Fs=Fs/num_channels, noverlap=16)
         ax[n+1,1].plot(t, 20*np.log10(np.abs(outputs[n,:])))
         ax[n+1,0].grid(True)
         ax[n+1,1].grid(True)
-        ax[n+1,1].set_ylim(bottom=-50)
+        ax[n+1,1].set_ylim(top=20)
+        ax[n+1,1].set_ylim(bottom=-100)
     t = np.arange(0, data.size)/Fs
     ax[0,0].specgram(data, NFFT=128, Fs=Fs, noverlap=100)
     ax[0,1].plot(t, 20*np.log10(np.abs(data)))
     ax[0,0].grid(True)
     ax[0,1].grid(True)
-    ax[0,1].set_ylim(bottom=-50)
+    ax[0,1].set_ylim(top=20)
+    ax[0,1].set_ylim(bottom=-100)
     plt.show()
