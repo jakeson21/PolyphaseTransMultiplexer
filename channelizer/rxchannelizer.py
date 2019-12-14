@@ -150,7 +150,7 @@ class RxChannelizer():
             # grab bins representing tuner Fc and bandwidth
             Y = X[tuner.wb_indices]
             if tuner.phase == 1 and tuner.wb_indices[0] % 2 == 1:
-                print('flipping phase')
+                # print('flipping phase')
                 Y = -Y
             tuner.phase ^= 1
             # to time-domain
