@@ -7,13 +7,12 @@ import pdb
 import matplotlib.pyplot as plt
 import matplotlib
 import sys
-from time import perf_counter 
+from time import perf_counter
 
 class PolyphaseRxChannelizer():
-    def __init__(self, sampleRateHz: float, channelBandwidthHz: float, blockSize: int):
+    def __init__(self, sampleRateHz: float, channelBandwidthHz: float):
         self.sampleRateHz: float = sampleRateHz
         self.channelBandwidthHz: float = channelBandwidthHz
-        self.blockSize = blockSize
 
         # Ensure total bandwidth is evenly divisible by the channel bandwidth
         if (sampleRateHz/channelBandwidthHz) != np.round(sampleRateHz/channelBandwidthHz):
@@ -43,15 +42,15 @@ class PolyphaseRxChannelizer():
         numtaps, beta = signal.kaiserord(150, width=transition_width/(0.5*fs))
         print('fs={}, transition_width={}, cutoff={}, numtaps={}, beta={}'.format(fs, transition_width, cutoff, numtaps, beta))
 
-        h = signal.firwin(numtaps, cutoff=cutoff, window=('kaiser', beta), scale=False, nyq=0.5*self.M)
+        h = signal.firwin(numtaps, cutoff=cutoff, window=('kaiser', beta), scale=False, nyq=0.5*fs)
         # h[abs(h) <= 1e-4] = 0.
-        # h = h/np.max(h)/self.M
+        # h = h/np.max(h)/fs
 
         # form Hk
-        N: int = int(np.ceil(np.ceil(h.size/self.M)*self.M))
+        N: int = int(np.ceil(np.ceil(h.size/fs)*fs))
         h.resize((N,), refcheck=False)
         # Columns are filter paths
-        Hk = np.reshape(h,(-1, self.M)).transpose()
+        Hk = np.reshape(h,(-1, fs)).transpose()
         return Hk
 
     def polyphase_downFIR(self, x):
@@ -182,7 +181,7 @@ if __name__ == "__main__":
     inds = np.arange(0, block_len*num_channels*num_blocks, dtype=int).reshape(num_blocks,-1)
 
     channelHz = Fs/num_channels
-    rx = PolyphaseRxChannelizer(sampleRateHz=Fs, channelBandwidthHz=channelHz, blockSize=block_len)
+    rx = PolyphaseRxChannelizer(sampleRateHz=Fs, channelBandwidthHz=channelHz)
     print(rx)
 
     # Start the stopwatch / counter 
