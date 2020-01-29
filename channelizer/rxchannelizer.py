@@ -6,6 +6,30 @@ import uuid
 import json
 import pdb
 import matplotlib.pyplot as plt
+import logging
+import time
+import threading
+import multiprocessing as mp
+from multiprocessing import Process, Queue
+
+
+### Logger
+# formatter = logging.Formatter('%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(module)s.%(funcName)s: %(message)s')
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(filename)s:%(lineno)d: %(message)s')
+logger = logging.getLogger('Channelizer')
+logger.setLevel(logging.INFO)
+# create file handler
+#fh = logging.FileHandler('appxModemServiceServer.log')
+#fh.setLevel(logging.INFO)
+#fh.setFormatter(formatter)
+# create console handler
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+ch.setFormatter(formatter)
+# add the handlers to the logger
+#self.logger.addHandler(fh)
+logger.addHandler(ch)
+
 
 def MakeWindow(nfft: int = 0, oversample: int = 4):
     f = 1.237 / nfft
@@ -35,7 +59,7 @@ def getWbIndices(fcHz: float, stepSizeHz: int, nfft: int, bandwidthHz: int):
     bins[negwrap] = bins[negwrap] + nfft
     poswrap = bins>=nfft
     bins[poswrap] = bins[poswrap] - nfft
-    print(bins.shape)
+    # print(bins.shape)
     bins = np.fft.ifftshift(bins)
     bins = bins.astype(int)
     return (bins, -f_offset)
@@ -108,6 +132,8 @@ class RxChannelizer():
         # Workload variables
         self.Tuners = dict()
 
+        self.stop_flag = False
+
     def __str__(self):
         d = dict()
         d['sampleRateHz'] = self.sampleRateHz
@@ -130,6 +156,39 @@ class RxChannelizer():
 
     def numTuners(self) -> int:
         return len(self.Tuners)
+
+    def stop(self):
+        logger.info('stop()')
+        self.stop_flag = True
+
+    def run(self, q_in:mp.Queue, q_out:mp.Queue):
+        # Busy loop until killed
+        try:
+            while not self.stop_flag:
+                # if not q_in.empty():
+                # logger.info('calling q_in.get()')
+                try:
+                    data = q_in.get(block=False, timeout=0.1)
+                    # print(data)
+                    if type(data) is np.ndarray:
+                        # logger.info('calling q_out.put()')
+                        output = self.process(data)
+                        # print(output)
+                        q_out.put(output)
+                        # logger.info('data processed')
+                    elif type(data) is bool:
+                        self.stop_flag = True
+                except:
+                    # logger.info('queue.Empty')
+                    time.sleep(0.1)
+                # else:
+                #     time.sleep(0.1)
+
+            logger.info('Stop requested...')
+            # self.stop()
+        except KeyboardInterrupt:
+            logger.info('Stopping...')
+            self.stop()
 
     def process(self, x):
         # Do algorithm here
@@ -168,40 +227,62 @@ class RxChannelizer():
 
         return output
 
+
+# def f(q):
+#     time.sleep(1.0)
+#     print('calling q.put()')
+#     q.put([42, None, 'hello'])
+
+
 if __name__ == "__main__":
-    rxchan = RxChannelizer(sampleRateHz=10000, stepSizeHz=100)
+    mp.set_start_method('spawn')
+    q_in = mp.Queue()
+    q_out = mp.Queue()
+
+    rxchan = RxChannelizer(sampleRateHz=10000, stepSizeHz=50)
     tuners = dict()
-    T = rxchan.requestTuner(bandwidthHz=1000, fcHz=0)
+    T = rxchan.requestTuner(bandwidthHz=1000, fcHz=3)
     tuners[T.tuner_id] = T
-    T = rxchan.requestTuner(bandwidthHz=1000, fcHz=50)
+    T = rxchan.requestTuner(bandwidthHz=2500, fcHz=50)
     tuners[T.tuner_id] = T
-    T = rxchan.requestTuner(bandwidthHz=2600, fcHz=-500)
+    T = rxchan.requestTuner(bandwidthHz=10000, fcHz=-100)
     tuners[T.tuner_id] = T
 
-    print(rxchan)
+    logger.info(rxchan)
+
+    p = mp.Process(target=rxchan.run, name='RxChannelizer', args=(q_in, q_out,))
+    logger.info('calling start()')
+    p.start()
 
     data = np.ones((rxchan.R, ), dtype=np.csingle)
     # x = np.empty((0,), dtype=np.csingle)
     x = dict()
     plt.subplot(len(tuners)+1, 1, 1)
-    for k in range(0,64):
-        output = rxchan.process(data)
-        # print(output)
+    for k in range(0,40):
+        logger.info('calling q_in.put()')
+        q_in.put(data)
+        output = q_out.get()
+        # output = rxchan.process(data)
 
-        n = 1
         for key in output:
-            t = np.arange(0.0, rxchan.Tuners[key].R) + (k-1)*rxchan.Tuners[key].R
-            # plt.subplot(len(tuners)+1, 1, 1)
-            plt.plot(t/tuners[key].bandwidthHz, output[key].real)
-            n += 1
             if key in x:
                 x[key] = np.concatenate((x[key], output[key]), axis=0)
             else:
                 x[key] = output[key]
 
+    # Stop processing
+    q_in.put(True)
+    logger.info('calling p.join()')
+    p.join()
+    logger.info('joined')
 
+    # Generate plots
+    plt.subplot(len(tuners)+1, 1, 1)
+    for key in x:
+        t = np.arange(0.0, x[key].size)
+        plt.plot(t/tuners[key].bandwidthHz, x[key])
     plt.grid(True)
-    # plt.show()
+
     n = 2
     for key in x:
         plt.subplot(len(tuners)+1, 1, n)
