@@ -48,24 +48,27 @@ def rcosdesign(beta, span, sps, name='normal'):
     return b
 
 
-def gen_complex_chirp(fs=44100):
+def gen_complex_chirp(fs=44100, duration=1.):
     f0 = -fs / 2.1
     f1 = fs / 2.1
-    t1 = 1
+    t1 = duration
     beta = (f1 - f0) / float(t1)
     t = np.arange(0, t1, t1 / float(fs))
-    return np.exp(2j * np.pi * (.5 * beta * (t ** 2) + f0 * t))
+    data = np.exp(2j * np.pi * (.5 * beta * (t ** 2) + f0 * t))
+    # Add noise to FDMA signal
+    data += 0.001 * np.squeeze(np.random.randn(data.size, 2).view(np.complex128))
+    return data
 
 
 def gen_fdma(fs, bw):
     num_chans = int(np.floor(fs / bw))
     # Generate QPSK data of about 1 second
     C = np.asarray([1 + 1j, 1 - 1j, -1 + 1j, -1 - 1j])
-    S = C[np.random.randint(C.size, size=(bw, 1))]
+    S = C[np.random.randint(C.size, size=(bw*2, 1))]
     Sup = np.zeros((S.size, num_chans - 1,))
     x = np.hstack((S, Sup))
     data = np.squeeze(np.reshape(x, (x.size, -1)))
-    hrrc = np.asarray(rcosdesign(beta=0.01, span=256, sps=num_chans * 2, name='normal'), dtype=np.cdouble)
+    hrrc = np.asarray(rcosdesign(beta=0.3, span=256, sps=num_chans * 2, name='normal'), dtype=np.cdouble)
     data = signal.lfilter(hrrc, 1, data)
 
     # generate fdma mapping
@@ -91,9 +94,10 @@ def gen_fdma(fs, bw):
 
 if __name__ == "__main__":
     num_channels = 5
-    chanBW = 5000
+    chanBW = 100000
     Fs = chanBW * num_channels
-    data = gen_fdma(fs=Fs, bw=chanBW)
+    # data = gen_fdma(fs=Fs, bw=chanBW)
+    data = gen_complex_chirp(fs=Fs, duration=2)
 
     # data = np.arange(0,rx.M*50, dtype=np.cdouble)
     num_blocks = 10
@@ -121,13 +125,20 @@ if __name__ == "__main__":
     print("Samples per second: {}".format(num_blocks*output.size / (t1_stop - t1_start)))
 
     tx = PolyphaseTxMultiplexer(sample_rate_Hz=Fs, channel_bandwidth_Hz=channelHz, block_size=block_len)
+    print(tx)
     inds = np.arange(0, block_len * num_blocks, dtype=int).reshape(num_blocks, -1)
+    t1_start = perf_counter()
     for m in range(num_blocks):
         output = tx.process(nb_outputs[:, inds[m, :]])
         if m == 0:
             wb_output = output
         else:
             wb_output = np.hstack((wb_output, output))
+    # Stop the stopwatch / counter
+    t1_stop = perf_counter()
+    print("Elapsed time: {} s".format(t1_stop - t1_start))
+    print("Samples per second: {}".format(num_blocks*output.size / (t1_stop - t1_start)))
+
     wb_output = wb_output[tx.input_buffer.size:]
 
     # Channelizer plot
@@ -135,7 +146,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(num_channels + 2, 2)
     t = np.arange(0, nb_outputs.shape[1]) / Fs * num_channels
     for n in range(0, rx.M):
-        ax[n + 1, 0].specgram(nb_outputs[n, :], NFFT=32, Fs=Fs / num_channels, noverlap=16)
+        ax[n + 1, 0].specgram(nb_outputs[n, :], NFFT=128, Fs=Fs / num_channels, noverlap=100)
         ax[n + 1, 1].plot(t, 20 * np.log10(np.abs(nb_outputs[n, :])))
         ax[n + 1, 0].grid(True)
         ax[n + 1, 1].grid(True)
@@ -159,4 +170,24 @@ if __name__ == "__main__":
     ax[num_channels + 1, 1].set_ylim(bottom=-60)
     plt.show()
 
+    # t = np.arange(0, nb_outputs.shape[1]) / Fs * num_channels
+    # sum_outputs = np.zeros_like(nb_outputs[0, :])
+    # fig, ax = plt.subplots(2, 1)
+    # for n in range(0, rx.M):
+    #     ax[0].plot(t, 20 * np.log10(np.abs(nb_outputs[n, :])))
+    #     sum_outputs += nb_outputs[n, :]
+    # ax[1].plot(t, 20 * np.log10(np.abs(sum_outputs)))
+    # ax[0].grid(True)
+    # ax[1].grid(True)
+    # ax[0].set_ylim(top=2.5)
+    # ax[0].set_ylim(bottom=-2.5)
+    # ax[1].set_ylim(top=2.5)
+    # ax[1].set_ylim(bottom=-2.5)
+    # plt.show()
 
+    f, Pxx_spec = signal.welch(data, Fs, 'flattop', 1024, return_onesided=False, scaling='spectrum')
+    plt.figure()
+    plt.semilogy(np.fft.fftshift(f), np.fft.fftshift(Pxx_spec))
+    plt.xlabel('frequency [Hz]')
+    plt.ylabel('Linear spectrum [mW RMS]')
+    plt.show()
