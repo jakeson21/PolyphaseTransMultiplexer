@@ -3,8 +3,11 @@ from scipy import signal
 from time import perf_counter
 import matplotlib.pyplot as plt
 import sys
-from polyphase_rxchannelizer import PolyphaseRxChannelizer
-from polyphase_txmultiplexer import PolyphaseTxMultiplexer
+
+from transmux.polyphase_rxchannelizer import PolyphaseRxChannelizer
+from transmux.polyphase_txmultiplexer import PolyphaseTxMultiplexer
+
+from transmux.halfband import Synthesis, Analysis
 
 
 def rcosdesign(beta, span, sps, name='normal'):
@@ -105,7 +108,8 @@ if __name__ == "__main__":
     inds = np.arange(0, block_len * num_channels * num_blocks, dtype=int).reshape(num_blocks, -1)
 
     channelHz = Fs / num_channels
-    rx = PolyphaseRxChannelizer(sample_rate_Hz=Fs, channel_bandwidth_Hz=channelHz)
+    # rx = PolyphaseRxChannelizer(sample_rate_Hz=Fs, channel_bandwidth_Hz=channelHz)
+    rx = Analysis(Analysis())
     print(rx)
 
     # Start the stopwatch / counter
@@ -124,7 +128,8 @@ if __name__ == "__main__":
     print("Elapsed time: {} s".format(t1_stop - t1_start))
     print("Samples per second: {}".format(num_blocks*output.size / (t1_stop - t1_start)))
 
-    tx = PolyphaseTxMultiplexer(sample_rate_Hz=Fs, channel_bandwidth_Hz=channelHz)
+    # tx = PolyphaseTxMultiplexer(sample_rate_Hz=Fs, channel_bandwidth_Hz=channelHz)
+    tx = Synthesis(Synthesis())
     print(tx)
     inds = np.arange(0, block_len * num_blocks, dtype=int).reshape(num_blocks, -1)
     t1_start = perf_counter()
@@ -139,7 +144,7 @@ if __name__ == "__main__":
     print("Elapsed time: {} s".format(t1_stop - t1_start))
     print("Samples per second: {}".format(num_blocks*output.size / (t1_stop - t1_start)))
 
-    wb_output = wb_output[tx.input_buffer.size:]
+    # wb_output = wb_output[tx.input_buffer.size:]
 
     # Channelizer plot
     plt.rcParams.update({'font.size': 7})
