@@ -3,32 +3,13 @@ import numpy as np
 from scipy import signal
 import json
 import pdb
-
-
-def make_polyphase_filter(channels, order=150):
-    fs = channels
-    cutoff = 0.5
-    transition_width = 0.499
-    numtaps, beta = signal.kaiserord(order, width=transition_width / (0.5 * fs))
-    # print('fs={}, transition_width={}, cutoff={}, numtaps={}, beta={}'.format(fs, transition_width, cutoff, numtaps, beta))
-
-    h = signal.firwin(numtaps, cutoff=cutoff, window=('kaiser', beta), scale=False, nyq=0.5 * fs)
-    h[abs(h) <= 1e-15] = 0.
-    h = h / np.max(abs(h))
-
-    # form Hk
-    N: int = int(np.ceil(np.ceil(h.size / fs) * fs))
-    h.resize((N,), refcheck=False)
-    # Columns are filter paths
-    hp = np.reshape(h, (-1, fs)).transpose()
-    return hp
+import make_polyphase_filter
 
 
 class PolyphaseTxMultiplexer:
-    def __init__(self, sample_rate_Hz: float, channel_bandwidth_Hz: float, block_size: int):
+    def __init__(self, sample_rate_Hz: float, channel_bandwidth_Hz: float):
         self.sample_rate_Hz: float = sample_rate_Hz
         self.channel_bandwidth_Hz: float = channel_bandwidth_Hz
-        self.blockSize = block_size
         self.t_last = 0
 
         # Ensure total bandwidth is evenly divisible by the channel bandwidth
@@ -73,5 +54,5 @@ if __name__ == "__main__":
     chanBW = 50000
     Fs = chanBW * num_channels
     channelHz = Fs / num_channels
-    tx = PolyphaseTxMultiplexer(sample_rate_Hz=Fs, channel_bandwidth_Hz=channelHz, block_size=1000)
+    tx = PolyphaseTxMultiplexer(sample_rate_Hz=Fs, channel_bandwidth_Hz=channelHz)
     print(tx)
