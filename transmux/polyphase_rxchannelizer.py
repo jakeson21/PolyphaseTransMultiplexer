@@ -6,17 +6,13 @@ from .utils import make_polyphase_filter
 
 
 class PolyphaseRxChannelizer:
-    def __init__(self, sample_rate_Hz: float, channel_bandwidth_Hz: float):
-        self.sample_rate_Hz: float = sample_rate_Hz
-        self.channel_bandwidth_Hz: float = channel_bandwidth_Hz
+    def __init__(self, sample_rate_hz: float, channels: int, transition=0.499):
+        self.sample_rate_Hz: float = sample_rate_hz
+        self.M = channels
+        self.channel_bandwidth_Hz: float = self.sample_rate_Hz / self.M
         self.t_last = 0
-
-        # Ensure total bandwidth is evenly divisible by the channel bandwidth
-        if (sample_rate_Hz / channel_bandwidth_Hz) != np.round(sample_rate_Hz / channel_bandwidth_Hz):
-            raise ValueError('sample_rate_Hz ({}) must be evenly divisible by channel_bandwidth_Hz ({})'.format(sample_rate_Hz, channel_bandwidth_Hz))
-
-        self.M = int(self.sample_rate_Hz / self.channel_bandwidth_Hz)
-        self.filter = make_polyphase_filter(self.M)
+        
+        self.filter = make_polyphase_filter(self.M, transition_width=transition)
         # inputBuffer is used to save filterlength-1 WB samples for overlap-and-save based filtering
         self.input_buffer = np.zeros((self.M, self.filter.shape[1] - 1), dtype=np.cdouble)
         # outputBuffer stores the last M-1 filtered and reordered samples for use in the next iteration
@@ -55,7 +51,7 @@ class PolyphaseRxChannelizer:
             self.t_last = t[-1] + t[1]-t[0]
             x *= np.exp(-2j * np.pi / (2 * self.M) * t)
         y = self.polyphase_down_fir(x)
-        output = np.fft.ifft(y, n=self.M, axis=0) * self.M
+        output = np.fft.ifft(y, n=self.M, axis=0) * np.sqrt(self.M)
         return output
 
 
@@ -66,4 +62,3 @@ if __name__ == "__main__":
     channelHz = Fs / num_channels
     rx = PolyphaseRxChannelizer(sample_rate_Hz=Fs, channel_bandwidth_Hz=channelHz)
     print(rx)
-

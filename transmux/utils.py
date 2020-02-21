@@ -62,6 +62,11 @@ def rcosdesign(beta, span, sps, name='normal'):
     return b
 
 
+def gen_complex_awgn(size=100000):
+    data = 1 * np.squeeze(np.random.randn(size, 2).view(np.complex128))
+    return data
+
+
 def gen_complex_chirp(fs=44100, duration=1.):
     f0 = -fs / 2.1
     f1 = fs / 2.1
@@ -70,11 +75,11 @@ def gen_complex_chirp(fs=44100, duration=1.):
     t = np.arange(0, t1, t1 / float(fs))
     data = np.exp(2j * np.pi * (.5 * beta * (t ** 2) + f0 * t))
     # Add noise to FDMA signal
-    data += 0.001 * np.squeeze(np.random.randn(data.size, 2).view(np.complex128))
+    data += 0.001 * gen_complex_awgn(data.size)
     return data
 
 
-def gen_fdma(fs, bw):
+def gen_fdma(fs, bw, sorted=False):
     num_chans = int(np.floor(fs / bw))
     # Generate QPSK data of about 1 second
     C = np.asarray([1 + 1j, 1 - 1j, -1 + 1j, -1 - 1j])
@@ -88,7 +93,8 @@ def gen_fdma(fs, bw):
     # generate fdma mapping
     f = np.linspace(-fs / 2, fs / 2, num_chans * 2 + 1)[1::2]
     fdma = np.random.randint(num_chans, size=10 * num_chans)
-    fdma = np.sort(fdma)
+    if sorted:
+        fdma = np.sort(fdma)
     bs = int(np.floor(data.size / fdma.size))
 
     n = 0
@@ -103,6 +109,5 @@ def gen_fdma(fs, bw):
         data[z] *= np.exp(2j * np.pi * fc * t[z] / fs) * p
         n += 1
     # Add noise to FDMA signal
-    data += 0.01 * np.squeeze(np.random.randn(data.size, 2).view(np.complex128))
+    data += 0.01 * gen_complex_awgn(data.size)
     return data
-

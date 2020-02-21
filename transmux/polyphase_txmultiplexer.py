@@ -6,17 +6,13 @@ from .utils import make_polyphase_filter
 
 
 class PolyphaseTxMultiplexer:
-    def __init__(self, sample_rate_Hz: float, channel_bandwidth_Hz: float):
-        self.sample_rate_Hz: float = sample_rate_Hz
-        self.channel_bandwidth_Hz: float = channel_bandwidth_Hz
+    def __init__(self, sample_rate_hz: float, channels: int, transition=0.499):
+        self.sample_rate_Hz: float = sample_rate_hz
+        self.M = channels
+        self.channel_bandwidth_Hz: float = self.sample_rate_Hz / self.M
         self.t_last = 0
 
-        # Ensure total bandwidth is evenly divisible by the channel bandwidth
-        if (sample_rate_Hz / channel_bandwidth_Hz) != np.round(sample_rate_Hz / channel_bandwidth_Hz):
-            raise ValueError('sample_rate_Hz ({}) must be evenly divisible by channel_bandwidth_Hz ({})'.format(sample_rate_Hz, channel_bandwidth_Hz))
-
-        self.M = int(self.sample_rate_Hz / self.channel_bandwidth_Hz)
-        self.filter = make_polyphase_filter(self.M)
+        self.filter = make_polyphase_filter(self.M, transition_width=transition)
         # inputBuffer is used to save filterlength-1 WB samples for overlap-and-save based filtering
         self.input_buffer = np.zeros((self.M, self.filter.shape[1] - 1), dtype=np.cdouble)
 
@@ -39,7 +35,7 @@ class PolyphaseTxMultiplexer:
         return xf.transpose().reshape(-1, )
 
     def process(self, x):
-        y = np.fft.ifft(x, n=self.M, axis=0) * self.M
+        y = np.fft.ifft(x, n=self.M, axis=0) * np.sqrt(self.M)
         output = self.polyphase_up_fir(y)
         if self.M % 2 == 0:
             t = np.linspace(0, output.size, output.size, endpoint=True) + self.t_last
