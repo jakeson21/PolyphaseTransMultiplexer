@@ -41,7 +41,7 @@ if __name__ == "__main__":
     t1_stop = perf_counter()
     print("Elapsed time: {} s".format(t1_stop - t1_start))
     print("Samples per second: {}".format(np.prod(nb_outputs.shape) / (t1_stop - t1_start)))
-
+    
     inds = np.arange(0, block_len * num_blocks, dtype=int).reshape(num_blocks, -1)
     t1_start = perf_counter()
     for m in range(num_blocks):
@@ -54,7 +54,6 @@ if __name__ == "__main__":
     t1_stop = perf_counter()
     print("Elapsed time: {} s".format(t1_stop - t1_start))
     print("Samples per second: {}".format(wb_output.size / (t1_stop - t1_start)))
-
 
     # Channelizer plots
     plt.rcParams.update({'font.size': 7})

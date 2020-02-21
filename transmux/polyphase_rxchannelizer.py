@@ -11,7 +11,7 @@ class PolyphaseRxChannelizer:
         self.M = channels
         self.channel_bandwidth_Hz: float = self.sample_rate_Hz / self.M
         self.t_last = 0
-
+        
         self.filter = make_polyphase_filter(self.M, transition_width=transition)
         # inputBuffer is used to save filterlength-1 WB samples for overlap-and-save based filtering
         self.input_buffer = np.zeros((self.M, self.filter.shape[1] - 1), dtype=np.cdouble)
