@@ -1,28 +1,47 @@
 import numpy as np
-from scipy import signal
 from time import perf_counter
 import matplotlib.pyplot as plt
 
 from transmux.halfband import OctaveAnalysis, OctaveSynthesis
 from transmux.utils import gen_complex_chirp, gen_fdma
+import simpleaudio as sa
+
+
+def play_audio(data, fs):
+    # Ensure that highest value is in 16-bit range
+    audio = data * (2 ** 15 - 1) / np.max(np.abs(data))
+    # Convert to 16-bit data
+    audio = audio.astype(np.int16)
+
+    # Start playback
+    play_obj = sa.play_buffer(audio, 1, 2, fs)
+
+    # Wait for playback to finish before exiting
+    play_obj.wait_done()
 
 
 if __name__ == "__main__":
-    num_channels = 10
-    chanBW = 100000
-    Fs = chanBW * num_channels
+    octaves = 4
+    # num_channels = 10
+    # chanBW = 44100
+    Fs = 44100  # chanBW * num_channels
     np.random.seed(0)
-    # data = gen_fdma(fs=Fs, bw=chanBW)
+    # data = gen_fdma(fs=Fs, bw=Fs/5)
     data = gen_complex_chirp(fs=Fs, duration=1)
 
-    # data = np.arange(0,rx.M*50, dtype=np.cdouble)
-    num_blocks = 10
-    block_len = int(np.floor(data.size / num_channels / num_blocks))
+    whole_blocks = np.floor(data.size / 2.0**octaves)
+    data = np.resize(data, (int(whole_blocks * 2**octaves),))
 
-    channelHz = Fs / num_channels
-    rx = OctaveAnalysis(5)
+    # data = np.arange(0,rx.M*50, dtype=np.cdouble)
+    # num_blocks = 10
+    # block_len = int(np.floor(data.size / num_channels / num_blocks))
+
+    play_audio(data, Fs)
+
+    # channelHz = Fs / num_channels
+    rx = OctaveAnalysis(octaves)
     print(rx)
-    tx = OctaveSynthesis(5)
+    tx = OctaveSynthesis(octaves)
     print(tx)
 
     # Start the stopwatch / counter
@@ -33,7 +52,7 @@ if __name__ == "__main__":
     t1_stop = perf_counter()
     print("Elapsed time: {} s".format(t1_stop - t1_start))
     sample_count = sum(nb_outputs[k].size for k in nb_outputs)
-    print("Samples per second: {}".format(num_blocks*sample_count / (t1_stop - t1_start)))
+    print("Samples per second: {}".format(sample_count / (t1_stop - t1_start)))
 
     # inds = np.arange(0, block_len * num_blocks, dtype=int).reshape(num_blocks, -1)
     t1_start = perf_counter()
@@ -42,7 +61,9 @@ if __name__ == "__main__":
     # Stop the stopwatch / counter
     t1_stop = perf_counter()
     print("Elapsed time: {} s".format(t1_stop - t1_start))
-    print("Samples per second: {}".format(num_blocks*wb_output.size / (t1_stop - t1_start)))
+    print("Samples per second: {}".format(wb_output.size / (t1_stop - t1_start)))
+
+    play_audio(wb_output, Fs)
 
     # Channelizer plot
     plt.rcParams.update({'font.size': 7})
@@ -54,7 +75,7 @@ if __name__ == "__main__":
         ax[n + 1, 1].plot(t, 20 * np.log10(np.abs(nb_outputs[str(n)])))
         ax[n + 1, 0].grid(True)
         ax[n + 1, 1].grid(True)
-        ax[n + 1, 1].set_ylim(top=20)
+        # ax[n + 1, 1].set_ylim(top=20)
         ax[n + 1, 1].set_ylim(bottom=-40)
         if n < len(nb_outputs)-2:
             chan_samp_rate = chan_samp_rate / 2
@@ -65,7 +86,7 @@ if __name__ == "__main__":
     ax[0, 1].plot(t, 20 * np.log10(np.abs(data)))
     ax[0, 0].grid(True)
     ax[0, 1].grid(True)
-    ax[0, 1].set_ylim(top=20)
+    # ax[0, 1].set_ylim(top=20)
     ax[0, 1].set_ylim(bottom=-40)
     # Multiplexer output plot
     t = np.arange(0, wb_output.size) / Fs
@@ -73,7 +94,7 @@ if __name__ == "__main__":
     ax[len(nb_outputs) + 1, 1].plot(t, 20 * np.log10(np.abs(wb_output)))
     ax[len(nb_outputs) + 1, 0].grid(True)
     ax[len(nb_outputs) + 1, 1].grid(True)
-    ax[len(nb_outputs) + 1, 1].set_ylim(top=20)
+    # ax[len(nb_outputs) + 1, 1].set_ylim(top=20)
     ax[len(nb_outputs) + 1, 1].set_ylim(bottom=-40)
     plt.show()
 

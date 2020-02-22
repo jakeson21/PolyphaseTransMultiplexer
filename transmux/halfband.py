@@ -55,7 +55,7 @@ class PolyphaseUpFir:
 class Synthesis:
     def __init__(self):
         self.M = 2
-        self.filter = make_polyphase_filter(self.M, order=40, cutoff=0.5, transition_width=0.2)
+        self.filter = make_polyphase_filter(self.M, order=80, cutoff=0.5, transition_width=0.01)
         self.up_fir = PolyphaseUpFir(self.M, self.filter)
         self.t_last = 0
 
@@ -73,7 +73,7 @@ class Synthesis:
 class Analysis:
     def __init__(self):
         self.M = 2
-        self.filter = make_polyphase_filter(self.M, order=40, cutoff=0.5, transition_width=0.2)
+        self.filter = make_polyphase_filter(self.M, order=80, cutoff=0.5, transition_width=0.01)
         self.down_fir = PolyphaseDownFir(self.M, self.filter)
         self.t_last = 0
 
@@ -82,6 +82,7 @@ class Analysis:
             t = np.linspace(0, x.size, x.size, endpoint=True) + self.t_last
             self.t_last = t[-1] + t[1]-t[0]
             d = x * np.exp(-2j * np.pi / (2 * self.M) * t)
+        assert(x.size % 2 == 0)
         y = self.down_fir.process(d)
         output = np.fft.ifft(y, n=self.M, axis=0) # * self.M
         return output
@@ -102,6 +103,11 @@ class OctaveSynthesis:
             n -= 1
             y = self.octave_synthesis(x, n, y)
         return y
+
+    def __str__(self):
+        d = dict()
+        d['num_octaves'] = self.num_octaves
+        return json.dumps(d)
 
     def process(self, x: dict):
         # process data from each octave
@@ -130,6 +136,11 @@ class OctaveAnalysis:
             y = self.octaves[str(n)]['handle'].process(x)
             self.octaves[str(n)]['data'] = y[1, :]
             self.octaves[str(n+1)]['data'] = y[0, :]
+
+    def __str__(self):
+        d = dict()
+        d['num_octaves'] = self.num_octaves
+        return json.dumps(d)
 
     def process(self, x):
         self.octave_analysis(x)
