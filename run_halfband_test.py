@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import signal
 from time import perf_counter
 import matplotlib.pyplot as plt
 

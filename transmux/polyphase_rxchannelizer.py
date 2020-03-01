@@ -62,3 +62,4 @@ if __name__ == "__main__":
     channelHz = Fs / num_channels
     rx = PolyphaseRxChannelizer(sample_rate_Hz=Fs, channel_bandwidth_Hz=channelHz)
     print(rx)
+

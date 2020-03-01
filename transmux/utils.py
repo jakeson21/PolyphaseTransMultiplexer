@@ -67,15 +67,32 @@ def gen_complex_awgn(size=100000):
     return data
 
 
+def gen_real_awgn(size=100000):
+    data = 1 * np.squeeze(np.random.randn(size, 1).view(np.double))
+    return data
+
+
 def gen_complex_chirp(fs=44100, duration=1.):
     f0 = -fs / 2.1
     f1 = fs / 2.1
     t1 = duration
     beta = (f1 - f0) / float(t1)
-    t = np.arange(0, t1, t1 / float(fs))
-    data = np.exp(2j * np.pi * (.5 * beta * (t ** 2) + f0 * t))
-    # Add noise to FDMA signal
+    t = np.arange(0., t1, t1 / float(fs))
+    data = np.exp(2j * np.pi * (.5 * beta * (t ** 2.) + f0 * t))
+    # Add noise to signal
     data += 0.001 * gen_complex_awgn(data.size)
+    return data
+
+
+def gen_real_chirp(fs=44100, duration=1.):
+    f0 = -fs / 2.1
+    f1 = fs / 2.1
+    t1 = duration
+    beta = (f1 - f0) / float(t1)
+    t = np.arange(0., t1, t1 / float(fs))
+    data = np.cos(2. * np.pi * (.5 * beta * (t ** 2.) + f0 * t))
+    # Add noise to signal
+    data += 0.001 * gen_real_awgn(data.size)
     return data
 
 
@@ -111,3 +128,21 @@ def gen_fdma(fs, bw, sorted=False):
     # Add noise to FDMA signal
     data += 0.01 * gen_complex_awgn(data.size)
     return data
+
+
+def plot_response(n, d=1.):
+    w, h = signal.freqz(n, d)
+    import matplotlib.pyplot as plt
+    ax1 = plt.subplot(211)
+    ax1.set_title('Digital filter frequency response')
+    ax1.plot(w, 20 * np.log10(abs(h)), 'b')
+    ax1.set_ylabel('Amplitude [dB]', color='b')
+    ax1.set_xlabel('Frequency [rad/sample]')
+    ax1.grid()
+    ax2 = plt.subplot(212)
+    angles = np.unwrap(np.angle(h))
+    ax2.plot(w, angles, 'g')
+    ax2.set_ylabel('Angle (radians)', color='g')
+    ax2.grid()
+    ax2.axis('tight')
+    plt.show()
