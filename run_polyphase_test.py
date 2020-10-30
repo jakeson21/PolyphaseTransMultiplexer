@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import numpy as np
 from scipy import signal
 from time import perf_counter
@@ -7,18 +8,19 @@ import matplotlib.gridspec as gridspec
 from transmux.polyphase_rxchannelizer import PolyphaseRxChannelizer
 from transmux.polyphase_txmultiplexer import PolyphaseTxMultiplexer
 from transmux.utils import gen_complex_chirp, gen_fdma, gen_complex_awgn
-
+import pdb
 
 if __name__ == "__main__":
-    num_channels = 5
+    num_channels = 10
     chanBW = 50000
     Fs = chanBW * num_channels
 
-    # data = gen_fdma(fs=Fs, bw=chanBW)
-    # data = gen_complex_chirp(fs=Fs, duration=2)
-    data = gen_complex_awgn(size=Fs)
+    # data = np.empty()
+    data = gen_fdma(fs=Fs, bw=chanBW)
+    # data += gen_complex_chirp(fs=Fs, duration=2)
+    data += 0.1*gen_complex_awgn(size=2*num_channels*chanBW)
 
-    num_blocks = 10
+    num_blocks = 50
     block_len = int(np.floor(data.size / num_channels / num_blocks))
     inds = np.arange(0, block_len * num_channels * num_blocks, dtype=int).reshape(num_blocks, -1)
 
@@ -39,8 +41,8 @@ if __name__ == "__main__":
             nb_outputs = np.hstack((nb_outputs, output))
     # Stop the stopwatch / counter
     t1_stop = perf_counter()
-    print("Elapsed time: {} s".format(t1_stop - t1_start))
-    print("Samples per second: {}".format(np.prod(nb_outputs.shape) / (t1_stop - t1_start)))
+    print("RX:\n  Elapsed time: {} s".format(t1_stop - t1_start))
+    print("  Samples per second: {}".format(np.prod(nb_outputs.shape) / (t1_stop - t1_start)))
     
     inds = np.arange(0, block_len * num_blocks, dtype=int).reshape(num_blocks, -1)
     t1_start = perf_counter()
@@ -52,14 +54,14 @@ if __name__ == "__main__":
             wb_output = np.hstack((wb_output, output))
     # Stop the stopwatch / counter
     t1_stop = perf_counter()
-    print("Elapsed time: {} s".format(t1_stop - t1_start))
-    print("Samples per second: {}".format(wb_output.size / (t1_stop - t1_start)))
+    print("TX:\n  Elapsed time: {} s".format(t1_stop - t1_start))
+    print("  Samples per second: {}".format(wb_output.size / (t1_stop - t1_start)))
 
     # Channelizer plots
     plt.rcParams.update({'font.size': 7})
     # fig, ax = plt.subplots(num_channels + 3, 2)
     fig = plt.figure()
-    gs = gridspec.GridSpec(num_channels+3, 2)
+    gs = gridspec.GridSpec(num_channels+4, 2)
 
     t = np.arange(0, nb_outputs.shape[1]) / Fs * num_channels
     for n in range(0, rx.M):
@@ -106,6 +108,15 @@ if __name__ == "__main__":
     ax.set_xlabel('frequency [Hz]')
     # ax.set_ylabel('Linear spectrum [mW RMS]')
     ax.legend(('Original', 'Recombined'), loc='upper right')
+    ax.grid(True)
+
+    # Plot filters
+    #pdb.set_trace()
+    ax = fig.add_subplot(gs[num_channels + 3, :])
+    ax.plot(rx.filter.transpose())
+    ax.set_ylabel('Filter Bank')
+    lbls = ['{}'.format(n) for n in range(rx.M)]
+    ax.legend(lbls, loc='upper right')
     ax.grid(True)
 
     plt.show()

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #Needs the following libs
 #sudo apt-get install python-numpy python-scipy python-matplotlib
 
