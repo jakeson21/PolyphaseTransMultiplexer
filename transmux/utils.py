@@ -130,19 +130,52 @@ def gen_fdma(fs, bw, sorted=False):
     return data
 
 
-def plot_response(n, d=1.):
-    w, h = signal.freqz(n, d)
+def plot_response(n, d = np.ones((1,)), scalex='lin', fs=2.*np.pi):
+    """
+    :param n: numerator coefficients
+    :param d: denominator coefficients
+    :param scalex: x-scaling, takes values 'lin', log'
+    :param fs: sampling frequency of data
+    :return: ax1, ax2
+    """
     import matplotlib.pyplot as plt
-    ax1 = plt.subplot(211)
-    ax1.set_title('Digital filter frequency response')
-    ax1.plot(w, 20 * np.log10(abs(h)), 'b')
-    ax1.set_ylabel('Amplitude [dB]', color='b')
-    ax1.set_xlabel('Frequency [rad/sample]')
-    ax1.grid()
-    ax2 = plt.subplot(212)
-    angles = np.unwrap(np.angle(h))
-    ax2.plot(w, angles, 'g')
-    ax2.set_ylabel('Angle (radians)', color='g')
-    ax2.grid()
-    ax2.axis('tight')
+    if len(n.shape) == 1 and len(d.shape) == 1:
+        w, h = signal.freqz(n, d, fs=fs)
+        if scalex == 'log':
+            w = 10.*np.log10(w)
+        ax1 = plt.subplot(211)
+        ax1.set_title('digital filter frequency response')
+        ax1.plot(w, 20 * np.log10(abs(h)), 'b')
+        ax1.set_ylabel('amplitude [db]', color='b')
+        ax1.set_xlabel('frequency [rad/sample]')
+        ax1.grid()
+        ax2 = plt.subplot(212)
+        angles = np.unwrap(np.angle(h))
+        ax2.plot(w, angles, 'g')
+        ax2.set_ylabel('angle (radians)', color='g')
+        ax2.grid()
+        ax2.axis('tight')
+    else:
+        ax1 = plt.subplot(211)
+        ax2 = plt.subplot(212)
+        hsum = np.zeros((1024,), dtype=np.float64)
+        asum = np.zeros((1024,), dtype=np.float64)
+        for k in range(n.shape[1]):
+            w, h = signal.freqz(n[:, k], d[:, k], worN=hsum.size, fs=fs)
+            hsum += 20 * np.log10(abs(h))
+            asum += np.angle(h)
+            if scalex == 'log':
+                w = 10.*np.log10(w)
+
+        ax1.plot(w, hsum, 'b')
+        ax1.set_title('digital filter frequency response')
+        ax1.set_ylabel('amplitude [db]', color='b')
+        ax1.set_xlabel('frequency [deg/sample]')
+        ax1.grid()
+        angles = np.unwrap(asum)
+        ax2.plot(w, angles*180./np.pi, 'g')
+        ax2.set_ylabel('angle (radians)', color='g')
+        ax2.grid()
+        ax2.axis('tight')
     plt.show()
+    return ax1, ax2

@@ -1,10 +1,5 @@
-import numpy as np
-from scipy import signal
 from equalizer import *
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from transmux.utils import gen_complex_chirp, gen_fdma, gen_complex_awgn
-from transmux.utils import gen_real_chirp, gen_fdma, gen_complex_awgn, plot_response
+from transmux.utils import plot_response
 
 
 # fs = 44100.
@@ -20,5 +15,8 @@ from transmux.utils import gen_real_chirp, gen_fdma, gen_complex_awgn, plot_resp
 # plot_response(num, den)
 
 
-Gdb = np.asarray([6., 6, 6, 6, 3, 3, -3, -3, -5, -5, -6, -6, 0, 0, 0, 3, 3, 3, 6, 6, 6, 9, 9, 9, 0, 0, 0, 12, 12, 12, 12])
+Gdb = np.asarray([9., 9, 9, 9, 9, 9, 9, 9, -9, -9, -6, -6, 0, 0, 0, 0, 0, 0, 6, 6, 6, 6, 6, 6, 0, 0, 0, 9, 9, 9, 9])
 numsopt, densopt = acge3(Gdb)
+plot_response(numsopt, densopt, fs=44100/2., scalex='log')
+# for k in range(numsopt.shape[1]):
+#     plot_response(numsopt[:, k], densopt[:, k], fs=44100, scalex='log')

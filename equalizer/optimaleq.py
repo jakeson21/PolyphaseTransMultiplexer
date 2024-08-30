@@ -121,27 +121,29 @@ def acge3(Gdb):
                                       92.51, 116.6, 146.9, 185.0, 233.1, 293.7, 370.0, 466.2, 587.4, 740.1, 932.4,
                                       1175, 1480, 1865, 2350, 2846, 3502, 4253, 5038, 5689, 5570])  # EQ filter bandwidths
 
-    leak = interactionMatrix(10. ** (17. / 20.) * np.ones((1, 31)), gw, wg, wc, bw)  # Estimate leakage b/w bands
+    leak = interactionMatrix(10. ** (17. / 20.) * np.ones((31,)), gw, wg, wc, bw)  # Estimate leakage b/w bands
     Gdb2 = np.zeros((61, 1))
-    Gdb2[0:61:2] = Gdb
+    Gdb2[0:61:2, 0] = Gdb
     for k in range(1, 61, 2):
-        Gdb2[k] = (Gdb2[k - 1] + Gdb2[k + 1]) / 2.  # Interpolate target gains linearly b/w command gains
+        Gdb2[k, 0] = (Gdb2[k - 1, 0] + Gdb2[k + 1, 0]) / 2.  # Interpolate target gains linearly b/w command gains
 
-    Goptdb = np.linalg.lstsq(leak, Gdb2)  # ldivide - Solve first estimate of dB gains based on leakage
-    Gopt = 10. ** (Goptdb / 20.)  # Convert to linear gain factors
+    # ldivide - Solve first estimate of dB gains based on leakage
+    Goptdb = np.linalg.lstsq(leak.transpose(), Gdb2, rcond=None)
+    Gopt = 10. ** (Goptdb[0] / 20.)  # Convert to linear gain factors
 
     # Iterate once
     leak2 = interactionMatrix(Gopt, gw, wg, wc, bw)  # Use previous gains
-    G2optdb = np.linalg.lstsq(leak2, Gdb2)  # ldivide - Solve optimal dB gains based on leakage
-    G2opt = 10. ** (G2optdb / 20.)  # Convert to linear gain factors
-    G2woptdb = gw * G2optdb  # Gain at bandwidth wg
+    # ldivide - Solve optimal dB gains based on leakage
+    G2optdb = np.linalg.lstsq(leak2.transpose(), Gdb2, rcond=None)
+    G2opt = 10. ** (G2optdb[0] / 20.)  # Convert to linear gain factors
+    G2woptdb = gw * G2optdb[0]  # Gain at bandwidth wg
     G2wopt = 10. ** (G2woptdb / 20.)  # Convert to linear gain factor
 
     # Design filters with optimized gains
     numsopt = np.zeros((3, 31))  # 3 num coefficients for each 10 filters
     densopt = np.zeros((3, 31))  # 3 den coefficients for each 10 filters
-    for k in range(32):
-        [num, den] = pareq(G2opt[k], G2wopt[k], wg[k], bw[k])  # Design filters
+    for k in range(31):
+        [num, den] = pareq(G2opt[k, 0], G2wopt[k, 0], wg[k], bw[k])  # Design filters
         numsopt[:, k] = num
         densopt[:, k] = den
 
