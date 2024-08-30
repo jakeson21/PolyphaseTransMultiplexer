@@ -13,7 +13,7 @@ def make_window(num_taps, oversample, beta):
     # h = h / np.sum(h)
 
     h = signal.firls(oversample*num_taps+1, bands, desired, fs=2)
-    hk = signal.kaiser(oversample*num_taps+1, beta=beta)
+    hk = signal.windows.kaiser(oversample*num_taps+1, beta=beta, sym=False)
     h = h * hk
     h = h[:-1]
     h = h / np.sum(h)

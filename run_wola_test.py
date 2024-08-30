@@ -1,12 +1,12 @@
 import numpy as np
 from scipy import signal
-from transmux.wola_oversampled_channelizer import WolaChannelizer, plot_response
+from transmux.wola_oversampled_channelizer import WolaChannelizer
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from transmux.utils import gen_complex_chirp, gen_fdma, gen_complex_awgn
+from transmux.utils import gen_complex_chirp, gen_fdma, gen_complex_awgn, plot_response
 
 
-fs = 1000
+fs = 100
 N = 10
 rx = WolaChannelizer(sample_rate_hz=fs, channels=N)
 

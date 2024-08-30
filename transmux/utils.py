@@ -9,7 +9,7 @@ def make_polyphase_filter(channels, order=150, cutoff=0.5, transition_width=0.49
     # transition_width = 0.499
     num_taps, beta = signal.kaiserord(order, width=transition_width / (0.5 * fs))
 
-    h = signal.firwin(num_taps, cutoff=cutoff, window=('kaiser', beta), scale=False, nyq=0.5 * fs)
+    h = signal.firwin(num_taps, cutoff=cutoff, window=('kaiser', beta), scale=False, fs=fs)
     h[abs(h) <= 1e-15] = 0.
     h = h / np.max(abs(h))
 

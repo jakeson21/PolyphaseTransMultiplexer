@@ -6,7 +6,7 @@ RUN apt update && apt -y install \
 
 # FROM base as builder
 
-COPY channelizer/requirements.txt /
+COPY transmux/requirements.txt /
 
 RUN apt -y install \
     python3-pip && \
@@ -15,6 +15,6 @@ RUN apt -y install \
 # FROM base
 # COPY --from=builder /install /usr/local
 
-COPY channelizer/ /channelizer
+COPY transmux/ /transmux
 
-WORKDIR /channelizer
+WORKDIR /transmux
